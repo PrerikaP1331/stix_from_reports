@@ -1,0 +1,7 @@
+IP_PATTERN = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+DOMAIN_PATTERN = r'\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b'
+URL_PATTERN = r'https?://[^\s]+'
+MD5_PATTERN = r'\b[a-fA-F0-9]{32}\b'
+SHA1_PATTERN = r'\b[a-fA-F0-9]{40}\b'
+SHA256_PATTERN = r'\b[a-fA-F0-9]{64}\b'
+CVE_PATTERN = r'CVE-\d{4}-\d{4,7}'

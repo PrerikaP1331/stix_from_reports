@@ -1,0 +1,7 @@
+pymupdf
+stix2
+httpx
+python-dotenv
+ioc-finder
+validators
+tldextract
