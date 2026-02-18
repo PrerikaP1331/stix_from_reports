@@ -1,16 +1,13 @@
-import asyncio
-from app.ioc.ioc_models import IOC
-from app.enrichment.enrichment_orchestrator import enrich_ioc
+from app.knowledge.enrichment_engine import EnrichmentEngine
 
+engine = EnrichmentEngine(
+    "app/data/attack-enterprise.json"
+)
 
-async def test():
-    test_ioc = IOC(type="ipv4", value="8.8.8.8")
+technique = engine.get_technique("T1059")
 
-    enriched = await enrich_ioc(test_ioc)
-
-    print("\n=== ENRICHMENT RESULT ===")
-    print(enriched.enrichment)
-
-
-if __name__ == "__main__":
-    asyncio.run(test())
+if technique:
+    print("Technique Name:", technique.get("name"))
+    print("Description snippet:", technique.get("description")[:200])
+else:
+    print("Technique not found")

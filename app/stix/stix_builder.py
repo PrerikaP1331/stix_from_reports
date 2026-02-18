@@ -1,37 +1,95 @@
-from stix2 import Indicator, IPv4Address, DomainName, Vulnerability, Bundle
+from stix2 import (
+    IPv4Address,
+    DomainName,
+    URL,
+    File,
+    Vulnerability,
+    Indicator,
+    Bundle, 
+    Relationship
+)
 from datetime import datetime
 
-def create_indicator_for_ip(ip_value: str):
-    ip_obj = IPv4Address(value=ip_value)
 
-    indicator = Indicator(
-        name=f"Malicious IP {ip_value}",
-        pattern=f"[ipv4-addr:value = '{ip_value}']",
-        pattern_type="stix",
-        valid_from=datetime.utcnow()
-    )
+class STIXBuilder:
 
-    return ip_obj, indicator
+    @staticmethod
+    def build_from_iocs(iocs: dict) -> Bundle:
+        objects = []
+        relationships = []
+        observable_objects = []
 
+        # IPv4
+        for ip in iocs.get("ips", []):
+            obj = IPv4Address(value=ip)
+            objects.append(obj)
+            observable_objects.append(obj)
 
-def create_indicator_for_domain(domain_value: str):
-    domain_obj = DomainName(value=domain_value)
+        # Domains
+        for domain in iocs.get("domains", []):
+            obj = DomainName(value=domain)
+            objects.append(obj)
+            observable_objects.append(obj)
 
-    indicator = Indicator(
-        name=f"Malicious Domain {domain_value}",
-        pattern=f"[domain-name:value = '{domain_value}']",
-        pattern_type="stix",
-        valid_from=datetime.utcnow()
-    )
+        # URLs
+        for url in iocs.get("urls", []):
+            obj = URL(value=url.rstrip("."))
+            objects.append(obj)
+            observable_objects.append(obj)
 
-    return domain_obj, indicator
+        # File hashes
+        for md5 in iocs.get("md5", []):
+            obj = File(hashes={"MD5": md5})
+            objects.append(obj)
+            observable_objects.append(obj)
 
+        for sha1 in iocs.get("sha1", []):
+            obj = File(hashes={"SHA1": sha1})
+            objects.append(obj)
+            observable_objects.append(obj)
 
-def create_vulnerability(cve_id: str):
-    return Vulnerability(
-        name=cve_id
-    )
+        for sha256 in iocs.get("sha256", []):
+            obj = File(hashes={"SHA256": sha256})
+            objects.append(obj)
+            observable_objects.append(obj)
 
+        # CVEs
+        for cve in iocs.get("cves", []):
+            vuln = Vulnerability(name=cve)
+            objects.append(vuln)
 
-def create_bundle(objects):
-    return Bundle(objects)
+            # relate vulnerability to all observables
+            for obs in observable_objects:
+                rel = Relationship(
+                    relationship_type="related-to",
+                    source_ref=vuln.id,
+                    target_ref=obs.id
+                )
+                relationships.append(rel)
+
+        return Bundle(objects + relationships)
+    
+    @staticmethod
+    def build_from_entities(entities: dict, relationships: list) -> Bundle:
+        objects = []
+        relationship_objects = []
+
+        added_ids = set()
+
+        # Add extracted entities
+        for category in entities.values():
+            for obj in category:
+                if obj["id"] not in added_ids:
+                    objects.append(obj)
+                    added_ids.add(obj["id"])
+
+        # Add inferred relationships
+        for rel in relationships:
+            relationship_obj = Relationship(
+                relationship_type=rel["relationship_type"],
+                source_ref=rel["source"]["id"],
+                target_ref=rel["target"]["id"]
+            )
+            relationship_objects.append(relationship_obj)
+
+        return Bundle(objects + relationship_objects, allow_custom=True)
