@@ -2,7 +2,6 @@ import re
 from typing import List
 from app.ioc.regex_patterns import *
 from app.ioc.ioc_models import IOC
-from app.extraction.document_model import Document
 
 
 def extract_sentences(text: str):

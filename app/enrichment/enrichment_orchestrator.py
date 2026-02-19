@@ -2,7 +2,7 @@ from typing import List
 from app.ioc.ioc_models import IOC
 import app.enrichment.virustotal as virustotal
 import app.enrichment.nvd as nvd
-
+import asyncio
 
 
 async def enrich_ioc(ioc: IOC) -> IOC:
@@ -27,10 +27,5 @@ async def enrich_ioc(ioc: IOC) -> IOC:
 
 
 async def enrich_all(iocs: List[IOC]) -> List[IOC]:
-    enriched = []
-
-    for ioc in iocs:
-        enriched_ioc = await enrich_ioc(ioc)
-        enriched.append(enriched_ioc)
-
-    return enriched
+    tasks = [enrich_ioc(ioc) for ioc in iocs]
+    return await asyncio.gather(*tasks)

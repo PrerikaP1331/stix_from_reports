@@ -1,5 +1,6 @@
 import streamlit as st
 from app.pipeline.cti_pipeline import CTIPipeline
+import json
 
 st.set_page_config(page_title="CTI STIX Generator", layout="wide")
 st.title("🛡️ CTI to STIX 2.1 Generator")
@@ -26,7 +27,7 @@ if st.button("Generate STIX Bundle"):
         st.success("STIX 2.1 Bundle Generated")
 
         with st.expander("View STIX JSON"):
-            st.json(bundle.serialize(pretty=True))
+            st.json(json.loads(bundle.serialize()))
 
         st.download_button(
             label="Download STIX Bundle",
