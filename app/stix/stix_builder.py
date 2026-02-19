@@ -5,85 +5,36 @@ from stix2 import (
     File,
     Vulnerability,
     Indicator,
-    Bundle, 
-    Relationship
+    Relationship,
+    Bundle
 )
 from datetime import datetime
+from typing import List
 
 
 class STIXBuilder:
 
     @staticmethod
-    def build_from_iocs(iocs: dict) -> Bundle:
-        objects = []
-        relationships = []
-        observable_objects = []
+    def build_full_bundle(entities: dict,
+                          relationships: list,
+                          iocs: List) -> Bundle:
 
-        # IPv4
-        for ip in iocs.get("ips", []):
-            obj = IPv4Address(value=ip)
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        # Domains
-        for domain in iocs.get("domains", []):
-            obj = DomainName(value=domain)
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        # URLs
-        for url in iocs.get("urls", []):
-            obj = URL(value=url.rstrip("."))
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        # File hashes
-        for md5 in iocs.get("md5", []):
-            obj = File(hashes={"MD5": md5})
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        for sha1 in iocs.get("sha1", []):
-            obj = File(hashes={"SHA1": sha1})
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        for sha256 in iocs.get("sha256", []):
-            obj = File(hashes={"SHA256": sha256})
-            objects.append(obj)
-            observable_objects.append(obj)
-
-        # CVEs
-        for cve in iocs.get("cves", []):
-            vuln = Vulnerability(name=cve)
-            objects.append(vuln)
-
-            # relate vulnerability to all observables
-            for obs in observable_objects:
-                rel = Relationship(
-                    relationship_type="related-to",
-                    source_ref=vuln.id,
-                    target_ref=obs.id
-                )
-                relationships.append(rel)
-
-        return Bundle(objects + relationships)
-    
-    @staticmethod
-    def build_from_entities(entities: dict, relationships: list) -> Bundle:
-        objects = []
+        stix_objects = []
         relationship_objects = []
-
         added_ids = set()
 
-        # Add extracted entities
+        # =====================================================
+        # 1️⃣ ADD ATT&CK ENTITIES
+        # =====================================================
         for category in entities.values():
             for obj in category:
                 if obj["id"] not in added_ids:
-                    objects.append(obj)
+                    stix_objects.append(obj)
                     added_ids.add(obj["id"])
 
-        # Add inferred relationships
+        # =====================================================
+        # 2️⃣ ADD INFERRED RELATIONSHIPS (uses)
+        # =====================================================
         for rel in relationships:
             relationship_obj = Relationship(
                 relationship_type=rel["relationship_type"],
@@ -92,4 +43,58 @@ class STIXBuilder:
             )
             relationship_objects.append(relationship_obj)
 
-        return Bundle(objects + relationship_objects, allow_custom=True)
+        # =====================================================
+        # 3️⃣ ADD IOCs AS INDICATORS
+        # =====================================================
+        for ioc in iocs:
+
+            pattern = STIXBuilder._build_pattern(ioc)
+
+            if not pattern:
+                continue
+
+            indicator = Indicator(
+                name=f"{ioc.type} indicator",
+                pattern=pattern,
+                pattern_type="stix",
+                description=ioc.context if ioc.context else None,
+                valid_from=datetime.utcnow()
+            )
+
+            stix_objects.append(indicator)
+
+        # =====================================================
+        # 4️⃣ ADD CVEs AS Vulnerability objects
+        # =====================================================
+        for ioc in iocs:
+            if ioc.type == "cve":
+                vuln = Vulnerability(name=ioc.value)
+                stix_objects.append(vuln)
+
+        return Bundle(stix_objects + relationship_objects, allow_custom=True)
+
+    # ---------------------------------------------------------
+    # Pattern Builder
+    # ---------------------------------------------------------
+    @staticmethod
+    def _build_pattern(ioc):
+
+        if ioc.type == "ipv4":
+            return f"[ipv4-addr:value = '{ioc.value}']"
+
+        if ioc.type == "domain":
+            return f"[domain-name:value = '{ioc.value}']"
+
+        if ioc.type == "url":
+            return f"[url:value = '{ioc.value}']"
+
+        if ioc.type == "md5":
+            return f"[file:hashes.MD5 = '{ioc.value}']"
+
+        if ioc.type == "sha1":
+            return f"[file:hashes.SHA1 = '{ioc.value}']"
+
+        if ioc.type == "sha256":
+            return f"[file:hashes.SHA256 = '{ioc.value}']"
+
+        return None

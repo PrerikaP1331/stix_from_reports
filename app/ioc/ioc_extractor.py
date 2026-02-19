@@ -43,8 +43,10 @@ def deduplicate_iocs(iocs: List[IOC]) -> List[IOC]:
     return unique
 
 
-def extract_iocs_from_document(document: Document) -> List[IOC]:
+def extract_iocs_from_text(text: str) -> List[IOC]:
     all_iocs = []
+
+    sentences = extract_sentences(text)
 
     patterns = [
         ("ipv4", IP_PATTERN),
@@ -56,22 +58,20 @@ def extract_iocs_from_document(document: Document) -> List[IOC]:
         ("cve", CVE_PATTERN),
     ]
 
-    for page in document.pages:
-        sentences = extract_sentences(page.text)
+    for ioc_type, pattern in patterns:
+        matches = re.findall(pattern, text)
 
-        for ioc_type, pattern in patterns:
-            matches = re.findall(pattern, page.text)
+        for match in matches:
+            context = find_context(match, sentences)
 
-            for match in matches:
-                context = find_context(match, sentences)
+            ioc = IOC(
+                type=ioc_type,
+                value=match,
+                context=context,
+                source="text"
+            )
 
-                ioc = IOC(
-                    type=ioc_type,
-                    value=match,
-                    context=context,
-                    source=f"Page {page.number}"
-                )
-
-                all_iocs.append(ioc)
+            all_iocs.append(ioc)
 
     return deduplicate_iocs(all_iocs)
+
